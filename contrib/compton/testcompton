@@ -1,0 +1,370 @@
+#!/usr/local/bin/tclsh8.6
+
+############## SUPPORTING FUNCTIONS #########################################
+
+namespace eval ::compton {
+  namespace export matrix expr
+  namespace ensemble create
+
+  proc matrix {command args} {
+    if {[namespace inscope ::compton::matrix [list info procs $command]] != ""} {
+      set command [list ::compton::matrix::$command {*}$args]
+      uplevel $command
+    } else {
+      set procList [namespace inscope ::compton::matrix [list info procs]]
+      set procList [lreplace $procList end end "or [lindex $procList end]"]
+      set procList [join $procList ", "]
+      error [format {unknown or ambiguous subcommand "%s": must be %s} $command $procList]
+    }
+  }
+
+  proc expr {varname expression} {
+    set res {(}
+    foreach line [split $expression "\r\n"] {
+      lappend res [string trim $line]
+    }
+    lappend res {)}
+    uplevel [list set $varname [join $res " "]]
+  }
+}
+
+namespace eval ::compton::matrix {
+
+  namespace export generate format
+
+  proc generate {size {varname {}}} {
+
+    set max [expr {($size * $size) - 1}]
+    for {set i 0} { $i < $max } { incr i } {
+      lappend matrix [expr {rand()}]
+    }
+    set matrix $size,$size,[join $matrix ,]
+
+    if {$varname == ""} {
+
+      return $matrix
+
+    } else {
+
+      uplevel [list array set $varname [concat \
+        [list blurDamageDepth [expr {($size/2)+2}]] \
+        [list depth $size] \
+        [list {} $matrix]
+      ]]
+    }
+  }
+
+  proc format {varname matrix} {
+    
+    set matrix [concat {*}$matrix]
+    set length [llength $matrix]
+    set depth [set depth [expr {int(sqrt($length))}]]
+    set blurDamageDepth [expr {($depth/2)+2}]
+    set center [expr {$length / 2}]
+
+    set kern [join [concat $depth, $depth, [lreplace $matrix $center-1 $center-1] ""]]
+
+    uplevel [list array set $varname [concat \
+      [list blurDamageDepth $blurDamageDepth] \
+      [list depth $depth] \
+      [list matrix $matrix] \
+      [list {} $kern]
+    ]]
+  }
+}
+############# MATRICES #####################################################
+compton matrix format fastGaussianBlur {
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+}
+
+compton matrix format fastHorizStreakBlur {
+  0.1250,  0.1250,  0.2500,  0.5000,  0.2500,  0.1250,  0.1250,
+  0.2500,  0.2500,  0.2500,  0.5000,  0.2500,  0.2500,  0.2500,
+  0.5000,  0.5000,  0.5000,  1.0000,  0.5000,  0.5000,  0.5000,
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,
+  0.5000,  0.5000,  0.5000,  1.0000,  0.5000,  0.5000,  0.5000,
+  0.2500,  0.2500,  0.2500,  0.5000,  0.2500,  0.2500,  0.2500,
+  0.1250,  0.1250,  0.2500,  0.5000,  0.2500,  0.1250,  0.1250,
+}
+
+############# MATRICES #####################################################
+compton matrix format gaussianBlur {
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  
+}
+
+compton matrix format rippleBlur {
+  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000
+}
+
+compton matrix format glassBlur {
+  1.0000,  0.9375,  0.8125,  0.6875,  0.5000,  0.8125,  0.5000,  0.6875,  0.5625,  0.5000,  0.5000,  0.5000,  0.5000
+  0.8750,  0.8125,  0.6875,  0.5625,  0.3750,  0.6875,  0.3750,  0.5625,  0.4375,  0.3750,  0.3750,  0.3750,  0.3750
+  0.6875,  0.6250,  0.5000,  0.3750,  0.1875,  0.5000,  0.1875,  0.3750,  0.2500,  0.1875,  0.1875,  0.1875,  0.1875
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+  0.8125,  0.7500,  0.6250,  0.5000,  0.3125,  0.6250,  0.3125,  0.5000,  0.3750,  0.3125,  0.3125,  0.3125,  0.3125
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+  0.6875,  0.6250,  0.5000,  0.3750,  0.1875,  0.5000,  0.1875,  0.3750,  0.2500,  0.1875,  0.1875,  0.1875,  0.1875
+  0.5625,  0.5000,  0.3750,  0.2500,  0.0625,  0.3750,  0.0625,  0.2500,  0.1250,  0.0625,  0.0625,  0.0625,  0.0625
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+  0.5000,  0.4375,  0.3125,  0.1875,  0.0000,  0.3125,  0.0000,  0.1875,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000
+}
+
+compton matrix format vertBlur {
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+  0.0000,  0.1667,  0.3333,  0.5000,  0.6667,  0.8333,  1.0000,  0.8333,  0.6667,  0.5000,  0.3333,  0.1667,  0.0000
+}
+compton matrix format horizBlur {
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000
+  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750
+  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000
+  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250
+  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500
+  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750
+  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000,  1.0000
+  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750,  0.8750
+  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500,  0.7500
+  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250,  0.6250
+  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000,  0.5000
+  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750,  0.3750
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000
+}
+
+compton matrix format donutBlur {
+  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000,  0.6875,  0.9375,  1.0000,  0.9375,  0.6875,  0.5000
+  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375,  0.6250,  0.8750,  0.9375,  0.8750,  0.6250,  0.4375
+  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875,  0.3750,  0.6250,  0.6875,  0.6250,  0.3750,  0.1875
+  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000,  0.1875,  0.4375,  0.5000,  0.4375,  0.1875,  0.0000
+}
+
+compton matrix format psuedoKawaseBlur {
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0156,  0.0312,  0.0000,  0.0000,  0.0000,  0.0312,  0.0156,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0312,  0.1250,  0.0625,  0.0000,  0.0625,  0.1250,  0.0312,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0625,  0.2500,  0.5000,  0.2500,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.5000,  1.0000,  0.5000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0625,  0.2500,  0.5000,  0.2500,  0.0625,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0312,  0.1250,  0.0625,  0.0000,  0.0625,  0.1250,  0.0312,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0156,  0.0312,  0.0000,  0.0000,  0.0000,  0.0312,  0.0156,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,  0.0000,
+}
+
+compton expr ignoreEffectsFilter {
+  !(
+    window_type *= "menu" ||
+    _NET_WM_WINDOW_TYPE@:a *= "MENU" ||
+    focused = 1
+  )
+}
+
+# set blurKern $fastGaussianBlur() ; #[compton matrix generate 15] ; #$gaussianBlur()
+# set blurDamageDepth $fastGaussianBlur(blurDamageDepth)
+
+# set blurKern $fastHorizStreakBlur()
+# set blurDamageDepth $fastHorizStreakBlur(blurDamageDepth)
+
+set blurKern 11x11gaussian
+set blurDamageDepth 7
+
+############ BUILD EXECUTION COMMAND #########################################
+
+set binpath [exec /usr/bin/which ./compton]
+set command [list exec $binpath]
+
+############ BUILT INS #######################################################
+
+    # lappend command -d DISPLAY                   ; # XORG DISPLAY NUMBER
+    # lappend command -S                           ; # X SYNC OPTION (DEBUG)
+      lappend command --daemon
+    # lappend command --show-all-xerrors           ; # verbose debugging
+      lappend command --dbus
+      lappend command --config /dev/null
+
+############ SHADOW ##########################################################
+
+      lappend command --shadow-radius=30           ; # (>0, Default: 12)
+      lappend command --shadow-opacity=1.0         ; # (0.0 - 1.0, Default: 0.75)
+      lappend command --shadow-offset-x=-40        ; # (>0, Default: -15)
+      lappend command --shadow-offset-y=-30        ;
+    # lappend command --shadow-red=0
+    # lappend command --shadow-blue=0
+    # lappend command --shadow-green=0
+      lappend command --shadow                     ; # client side shadows
+      lappend command --no-dock-shadow             ; # block shadow on dock/panel
+      lappend command --clear-shadow               ; # zero mask behind window
+    # lappend command --no-dnd-shadow              ; # no shadow on drag n drop
+    # lappend command --shadow-ignore-shaped
+    # lappend command --respect-prop-shadow
+    # lappend command --shadow-exclude CONDITION
+    # lappend command --shadow-exclude-reg GEOMETRY
+      lappend command --xinerama-shadow-crop
+
+
+############ ANIMATION #######################################################
+
+      lappend command --fading                     ; # fade in/out on open/close
+      lappend command --fade-in-step=0.1             ; # (0.01 - 1.0, Defaults: )
+      lappend command --fade-out-step=0.1            ; # (0.01 - 1.0, Defaults: )
+      lappend command --fade-delta=1               ; # (msec, >0, Default: 10)
+    # lappend command --no-fading-openclose
+    # lappend command --no-fading-destroyed-argb
+    # lappend command --fade-exclude CONDITION
+
+
+############ BLUR OPTIONS ####################################################
+
+      lappend command --blur-background
+      lappend command --blur-background-frame
+    # lappend command --blur-background-fixed
+    # lappend command --blur-kern 7x7gaussian
+      lappend command --blur-method dual_kawase
+      lappend command --blur-strength 5
+    # lappend command --blur-background-exclude=${ignoreEffectsFilter}
+      lappend command --resize-damage=${blurDamageDepth}
+
+
+############ OPACITY AND DIMMING #############################################
+
+      lappend command --menu-opacity=0.8
+      lappend command --active-opacity=1.0
+      lappend command --inactive-opacity=1.0
+      lappend command --frame-opacity=0.8           ; # frame opacity
+      lappend command --inactive-opacity-override
+      lappend command --detect-client-opacity
+    # lappend command --opacity-rule OPACITY:''
+
+    # lappend command --inactive-dim 0.1  
+    # lappend command --inactive-dim-fixed
+
+
+
+############ PERFORMANCE CUSTOMIZATIONS ######################################
+
+      lappend command --detect-rounded-corners
+    # lappend command --detect-client-leader
+
+    # lappend command --mark-wmwin-focused
+    # lappend command --mark-ovredir-focused
+    # lappend command --focus-exclude CONDITION
+
+    # lappend command --use-ewmh-active-win
+
+
+# Unredirect all windows if a full-screen opaque window is detected,
+# to maximize performance for full-screen windows. Known to cause
+# flickering when redirecting/unredirecting windows. --paint-on-overlay
+# may make the flickering less obvious.
+
+      lappend command --unredir-if-possible
+      lappend command --unredir-if-possible-delay 500; # in MILLISECONDS
+    # lappend command --unredir-if-possible-exclude CONDITION
+
+# Painting on X Composite overlay window instead of on root window.
+
+      lappend command --paint-on-overlay
+
+    # lappend command --detect-transient
+    # lappend command --invert-color-include CONDITION
+
+
+############ BACKEND (GLX AND XRENDER OPTIONS ################################
+
+# options for backend: xrender/glx/xr_glx_hybrid
+    lappend command --backend glx
+
+    # lappend command --refresh-rate REFRESH_RATE
+
+# options for vsync: none/drm/opengl/opengl-oml/opengl-swc/opengl-mswc
+    # lappend command --vsync opengl
+    # lappend command --vsync-aggressive
+
+# Limit compton to repaint at most once every 1 / refresh_rate second
+# to boost performance. This should not be used with --vsync
+# drm/opengl/opengl-oml as they essentially does --sw-opti's job
+# already, unless you wish to specify a lower refresh rate than the
+# actual value.
+
+    # lappend command --sw-opti 
+
+    # lappend command --dbe
+
+    # lappend command --glx-no-stencil
+    # lappend command --glx-copy-from-front
+    # lappend command --glx-use-copysubbuffermesa
+    # lappend command --glx-no-rebind-pixmap
+
+# glx-swap-method options: undefined/exchange/copy/3/4/5/6/buffer-age
+    # lappend command --glx-swap-method=exchange
+      lappend command --glx-use-gpushader4
+    # lappend command --glx-fshader-win SHADER
+
+    # lappend command --xrender-sync
+    # lappend command --xrender-sync-fence
+    # lappend command --alpha-step VALUE ;# xrender only: pregen. alpha step
+
+    # lappend command --force-win-blend
+
+    # lappend command --benchmark CYCLES
+    # lappend command --benchmark-wid WINDOW_ID
+
+############ START ###########################################################
+
+catch {exec pkill compton} err
+{*}$command
+
