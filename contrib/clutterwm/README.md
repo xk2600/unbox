@@ -1,9 +1,10 @@
-so you want to build a compositor
-26 July 2008 10:02 PM (nargery | gl | tfp | window manager | clutter)
+# So you want to build a compositor
 
-a dialog with someone i don't know
+*26 July 2008 10:02 PM (nargery | gl | tfp | window manager | clutter)*
 
-    One way to think about it is that it's like driving a car down the road, and suddenly swapping the steering wheel and brakes out for a tiller and gear shifter. And having to downshift for braking until you learn that the brakes moved to the turn indicator lever. By trial and error. 
+## A dialog with someone i don't know
+
+> One way to think about it is that it's like driving a car down the road, and suddenly swapping the steering wheel and brakes out for a tiller and gear shifter. And having to downshift for braking until you learn that the brakes moved to the turn indicator lever. By trial and error. 
 
 That's the internet's Joey Hess, a wonderful writer, who recently switched window managers.
 
@@ -11,7 +12,7 @@ A while back I discussed some new interaction possibilities, and a lot of them h
 
 In the free desktop, the locus of this experience is in the window manager. Again, Joey tries to give analogies:
 
-    Another way to look at it is adopting a new philosophy. Or, in some cases a cult. (In some cases, with crazy cult leaders.) Whether they use Windows or a Mac, or Linux, most computer users are members of a big established religion, with some implicit assumptions, like "thy windows shall be overlapping, like papers on the desktop, and thou shalt move them with thy mouse". 
+> Another way to look at it is adopting a new philosophy. Or, in some cases a cult. (In some cases, with crazy cult leaders.) Whether they use Windows or a Mac, or Linux, most computer users are members of a big established religion, with some implicit assumptions, like "thy windows shall be overlapping, like papers on the desktop, and thou shalt move them with thy mouse". 
 
 The obvious step if you want to apostatize yourself from the "desktop metaphor", then, is to start hacking window managers. That's how I spent my hack-time in the last month and a half; this writing is an attempt at exegesis.
 
@@ -21,6 +22,7 @@ I wanted to make a 3D compositing window manager. By 3D, I mean that I wanted th
 
 As an implementation strategy, I took this opportunity to check out Clutter, a GL-based canvas library. What follows is a minimal translation into C of the basic concepts, a broken but fun-to-hack substrate for experimentation.
 
+```c
 int main (int argc, char *argv[])
 {
     prep_clutter (&argc, &argv);
@@ -33,9 +35,11 @@ int main (int argc, char *argv[])
 
     return 0;
 }
+```
 
 The main function is pretty simple. We'll be looking at the various functions one by one, but out of order. Let's start with prep_root:
 
+```c
 Display *dpy;
 Window root;
 void prep_root (void)
@@ -46,15 +50,18 @@ void prep_root (void)
     XCompositeRedirectSubwindows (dpy, root, CompositeRedirectAutomatic);
     XSelectInput (dpy, root, SubstructureNotifyMask);
 }
+```
 
 This function does two things of interest: first, it tells the X server to redirect output of all windows into backing pixmaps, such that the contents of all mapped windows are available, even if the X server does not think that they are visible. Second, we ask the X server to give us notification when windows come and go, and when they change size.
 
+```c
 Window overlay;
 void prep_overlay (void)
 {
     overlay = XCompositeGetOverlayWindow (dpy, root);
     allow_input_passthrough (overlay);
 }
+```
 
 The Composite extension, which allows us to redirect window output, also provides for the existence of an "overlay" window, one that is above all other windows. You can draw directly to the overlay window, but the normal way that you use it is as a parent window -- you create your own window, then reparent it to the overlay.
 
@@ -66,6 +73,7 @@ This upshot is that what happens today with compositing window managers is that 
 
 Hence, the need to allow events (clicks, pointer motion, etc) to pass through the overlay:
 
+```c
 void allow_input_passthrough (Window w)
 {
     XserverRegion region = XFixesCreateRegion (dpy, NULL, 0);
@@ -75,9 +83,11 @@ void allow_input_passthrough (Window w)
 
     XFixesDestroyRegion (dpy, region);
 }
+```
 
 Basically we call a few undocumented functions, whose goal is to tell the X server that the window in question is not to receive pointer input events.
 
+```c
 ClutterActor *stage;
 Window stage_win;
 void prep_stage (void)
@@ -96,9 +106,11 @@ void prep_stage (void)
     
     clutter_actor_show_all (stage);
 }
+```
 
 The next step is to create the clutter "stage", the GLX window to which all of our output will go. We reparent the stage to the overlay, so that it will always be on top, then we allow input events to pass through it as well.
 
+```c
 Window input;
 void prep_input (void)
 {
@@ -119,11 +131,13 @@ void prep_input (void)
 
     attach_event_source ();
 }
+```
 
 So if the events fall through the stage, and fall through the overlay, what happens if they don't fall onto a window? Well, you probably want the stage to get the last crack at them, instead of the root window. So hence this terrible trick, making a separate fullscreen input-only window, located below all windows except the root window. We select for all input on this window, so that we get e.g. key presses as well.
 
 Then we install a GSource to process pending X events, redirecting events from the input window to the stage window:
 
+```c
 GPollFD event_poll_fd;
 static GSourceFuncs event_funcs = {
     event_prepare,
@@ -145,9 +159,11 @@ void attach_event_source (void)
     g_source_set_can_recurse (source, TRUE);
     g_source_attach (source, NULL);
 }
+```
 
-The prepare() and check() functions are a bit boring, but the dispatch() is worth a look:
+The `prepare()` and `check()` functions are a bit boring, but the `dispatch()` is worth a look:
 
+```c
 static gboolean
 event_dispatch (GSource *source, GSourceFunc callback, gpointer user_data)
 {
@@ -176,6 +192,7 @@ event_dispatch (GSource *source, GSourceFunc callback, gpointer user_data)
 
     return TRUE;
 }
+```
 
 We just pick off events, translating the input to the stage window, then give the events to clutter.
 
@@ -183,6 +200,7 @@ Obviously this is a crapload of code just to shunt events around; normally with 
 
 This brings me back to the beginning, prep_clutter:
 
+```c
 GType texture_pixmap_type;
 void prep_clutter (int *argc, char ***argv)
 {
@@ -195,6 +213,7 @@ void prep_clutter (int *argc, char ***argv)
     else
         texture_pixmap_type = CLUTTER_GLX_TYPE_TEXTURE_PIXMAP;
 }
+```
 
 Here we see that you have to turn off event retrieval before calling clutter_init. Then, we tell Clutter to call a event_filter whenever it gets an X event. I'll get back to that function in a minute.
 
@@ -206,16 +225,17 @@ But that server-side rendering may be accelerated; indeed, that was the whole po
 
 Indirect rendering is slower, however, and it is advantageous to use direct rendering when possible. The problem comes when wanting to use TFP and direct rendering; if I want to bind a GL texture to a pixmap corresponding to some other application, and I am not going to go through the X server to do so, then obviously the kernel itself has to know about X drawables. If I have a named pixmap open from one process that was created from another process, there needs to be a unified memory manager in the kernel:
 
-    It's a crude approximation but the most crucial difference between the nvidia architecture and DRI/DRM is that nvidia actually have a memory manager - and a unified one at that. Without a memory manager it's impossible to allocate offscreen buffers (hence, no pbuffers or fbos) and without a unified memory manager it's impossible to reconcile 2D and 3D operations (hence no redirected Direct Rendering). The Accelerated Indirect GLX feature that the freetards were busy raving about is an endless source of confusion - and ultimately a hack to workaround their lack of a memory manager. 
+> It's a crude approximation but the most crucial difference between the nvidia architecture and DRI/DRM is that nvidia actually have a memory manager - and a unified one at that. Without a memory manager it's impossible to allocate offscreen buffers (hence, no pbuffers or fbos) and without a unified memory manager it's impossible to reconcile 2D and 3D operations (hence no redirected Direct Rendering). The Accelerated Indirect GLX feature that the freetards were busy raving about is an endless source of confusion - and ultimately a hack to workaround their lack of a memory manager.
 
 (That from Linux hater, someone I have warmed to in recent weeks -- I basically agree with Jeremy Allison's position.)
 
 Anyway. You can't do direct TFP with free drivers, is the conclusion of that digression. That's OK, because you can always force indirect rendering via setting LIBGL_ALWAYS_INDIRECT=1 in your environment. But you can't do indirect rendering in Xephyr, only direct, so it's tough to test out window managers. Fortunately, you can get window contents into clutter without TFP, using the fallbacks -- hence the NO_TFP check in prep_clutter.
 
-ánimo, peregrino
+### ánimo, peregrino
 
 OK, at this point we're almost there. Here's the event handler:
 
+```c
 static ClutterX11FilterReturn
 event_filter (XEvent *ev, ClutterEvent *cev, gpointer unused)
 {
@@ -228,9 +248,11 @@ event_filter (XEvent *ev, ClutterEvent *cev, gpointer unused)
         return CLUTTER_X11_FILTER_CONTINUE;
     }
 }
+```
 
 It's pretty simple, an X event is a tagged union. We respond to the CreateNotify events, which come because we selected for SubstructureNotifyMask on the root window. It turns out we don't need any more events, because clutter handles the rest:
 
+```
 static void
 window_created (Window w)
 {
@@ -261,9 +283,11 @@ window_created (Window w)
             window_mapped_changed (tex, NULL, NULL);
     }
 }
+```
 
 Once we create the window, Clutter will listen for changes in its state -- resizes, maps or unmaps, and ultimately its destruction. (Or at least it will, once #1020 is applied.) Here we connect with the minimum bits necessary to make a window usable. Finally, the functions to show, hide, and resize windows:
 
+```c
 static void
 window_position_changed (ClutterActor *tex, GParamSpec *pspec, gpointer unused)
 {
@@ -288,20 +312,25 @@ window_mapped_changed (ClutterActor *tex, GParamSpec *pspec, gpointer unused)
         clutter_container_remove_actor (CLUTTER_CONTAINER (stage), tex);
     }
 }
+```
 
-final notes
+## final notes
 
 Code is here, compile as:
 
+```bash
  gcc `pkg-config --cflags --libs clutter-glx-0.8` \
      -o mini-clutter-wm mini-clutter-wm.c 
+```
 
 You might want to run it in a Xephyr; do it with the script here:
 
- ./run-xephyr ./mini-clutter-wm
+```bash
+./run-xephyr ./mini-clutter-wm
+```
 
 Joey again:
 
-    So ideally, "I switched to a new window manager" doesh't mean "my screen has some different widgets on it now". It means "I'm looking at the screen with new eyes." 
+> So ideally, "I switched to a new window manager" doesh't mean "my screen has some different widgets on it now". It means "I'm looking at the screen with new eyes." 
 
 This blog is already way too long, so I'll revisit interface concepts at some point in the future. For now I just wanted to pull together this knowledge in one place. Happy hacking!
