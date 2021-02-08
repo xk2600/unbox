@@ -1,6 +1,6 @@
 # So you want to build a compositor
 
-*26 July 2008 10:02 PM (nargery | gl | tfp | window manager | clutter)*
+*26 July 2008 10:02 PM (nargery | gl | tfp | window manager | clutter)* - [ [jsdir/wm](https://github.com/jsdir/wm) ]
 
 ## A dialog with someone i don't know
 
